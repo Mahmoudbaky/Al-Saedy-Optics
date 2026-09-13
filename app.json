@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "al-saedy-optics",
+    "name": "Al-Saedy Optics",
     "slug": "al-saedy-optics",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,11 @@
     "scheme": "alsaedyoptics",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "supportsTablet": false,
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -28,9 +32,22 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#F7F5F1",
+          "image": "./assets/brand/mark.png",
+          "imageWidth": 110,
+          "dark": {
+            "backgroundColor": "#0F1620",
+            "image": "./assets/brand/mark.png"
+          }
+        }
+      ],
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "يستخدم التطبيق الكاميرا لتجربة النظارات على وجهك افتراضياً. / Used for the virtual try-on.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ]
     ],
@@ -44,6 +61,13 @@
         "projectId": "5d5b52c6-5f33-487f-b97c-47f8b1405f0e"
       }
     },
-    "owner": "mahmoudsale7"
+    "owner": "mahmoudsale7",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5d5b52c6-5f33-487f-b97c-47f8b1405f0e",
+      "checkAutomatically": "ON_ERROR_RECOVERY"
+    }
   }
 }

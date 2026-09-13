@@ -1,98 +1,81 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Redirect, useRouter } from 'expo-router';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Screen } from '@/components/layout';
+import { Button, Pressable, Text } from '@/components/ui';
+import { useLocale, type Locale } from '@/i18n';
+import { radius, spacing, useThemedStyles, type Palette } from '@/theme';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+const mark = require('@/assets/brand/mark.png');
+
+/** Splash + language picker. Shown once; later launches go straight to the tabs. */
+export default function SplashScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const router = useRouter();
+  const { t, locale, hasChosenLocale, setLocale } = useLocale();
+  const [choice, setChoice] = useState<Locale>(locale);
+
+  if (hasChosenLocale) return <Redirect href="/(tabs)" />;
+
+  // Storing the choice flips `hasChosenLocale`, which redirects into the tabs.
+  // A direction change reloads the app first so the new layout direction applies.
+  const start = () => setLocale(choice);
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <Screen background="brand" edges={['top', 'bottom']} style={styles.screen}>
+      <View style={styles.hero}>
+        <View style={styles.markBox}>
+          <Image source={mark} style={styles.mark} contentFit="contain" />
+        </View>
+        <View style={styles.copy}>
+          <Text variant="displayLg" color="onNavy" align="center">{t.common.appName}</Text>
+          <Text variant="body" color="onNavyMuted" align="center" style={styles.tagline}>{t.splash.tagline}</Text>
+        </View>
+      </View>
+
+      <View style={styles.actions}>
+        <Text variant="label" color="onNavySubtle" align="center">{t.splash.chooseLanguage}</Text>
+        <View style={styles.languages}>
+          <LanguageOption label={t.splash.arabic} selected={choice === 'ar'} onPress={() => setChoice('ar')} />
+          <LanguageOption label={t.splash.english} selected={choice === 'en'} onPress={() => setChoice('en')} />
+        </View>
+        <Button label={t.splash.start} onPress={start} />
+        <Pressable onPress={() => router.replace('/(tabs)/account')} accessibilityRole="link" style={styles.signIn}>
+          <Text variant="label" color="onNavySubtle" align="center">{t.splash.haveAccount}</Text>
+        </Pressable>
+      </View>
+    </Screen>
   );
 }
 
-export default function HomeScreen() {
+function LanguageOption({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      style={[styles.language, selected ? styles.languageSelected : styles.languageIdle]}
+    >
+      <Text variant="bodyLg" color={selected ? 'brand' : 'onNavy'} weight={selected ? 'bold' : 'regular'}>{label}</Text>
+    </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+  screen: { paddingHorizontal: 28 },
+  hero: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22 },
+  markBox: { width: 112, height: 124, borderRadius: 28, backgroundColor: colors.onNavy, alignItems: 'center', justifyContent: 'center' },
+  mark: { width: 74, height: 82 },
+  copy: { gap: spacing.sm },
+  tagline: { lineHeight: 26 },
+  actions: { gap: spacing.md, paddingBottom: spacing.lg },
+  languages: { flexDirection: 'row', gap: 10 },
+  language: { flex: 1, borderRadius: radius.xl, paddingVertical: 16, alignItems: 'center', overflow: 'hidden' },
+  languageSelected: { backgroundColor: colors.onNavy },
+  languageIdle: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' },
+  signIn: { paddingTop: 2 },
 });
