@@ -92,6 +92,7 @@ export function useApiErrorMessage(): (error: unknown) => string {
         if (/out of stock/i.test(m)) return e.outOfStock;
         if (/prescription.*(not been verified|not verified)/i.test(m)) return e.rxNotVerified;
         if (/prescription.*expired/i.test(m)) return e.rxExpired;
+        if (/prescription.*rejected/i.test(m)) return e.rxRejected;
         if (/prescription is required/i.test(m)) return e.rxRequired;
         if (/promo code/i.test(m)) return e.promoInvalid;
         if (/colou?r is not available/i.test(m)) return e.colorUnavailable;

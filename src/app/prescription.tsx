@@ -37,6 +37,7 @@ function PrescriptionBody() {
   const errorMessage = useApiErrorMessage();
   const prescriptions = usePrescriptions();
   const create = useCreatePrescription();
+  const cart = useCart();
 
   const [mode, setMode] = useState<Mode>('manual');
   const [values, setValues] = useState<Record<Eye, EyeForm>>({ od: emptyEye, os: emptyEye });
@@ -55,7 +56,7 @@ function PrescriptionBody() {
     setFormError(null);
     if (!values.od.sph.trim() && !values.os.sph.trim()) return setFormError(t.prescription.sphRequired);
     try {
-      await create.mutateAsync({
+      const created = await create.mutateAsync({
         source: 'manual',
         od: { sph: clean(values.od.sph), cyl: clean(values.od.cyl), axis: clean(values.od.axis) },
         os: { sph: clean(values.os.sph), cyl: clean(values.os.cyl), axis: clean(values.os.axis) },
@@ -67,7 +68,13 @@ function PrescriptionBody() {
       setValues({ od: emptyEye, os: emptyEye });
       setPd('');
       setAdd('');
-      Alert.alert(t.prescription.savedHint, t.prescription.pendingHint);
+      // Attach it straight away when the cart is waiting for one, then return to the cart.
+      if (cart.cart?.requiresPrescription && !cart.cart.prescription) {
+        await cart.attachPrescription(created.id).catch(() => {});
+        Alert.alert(t.prescription.savedHint, t.prescription.pendingHint, [{ text: t.common.done, onPress: () => router.canGoBack() && router.back() }]);
+      } else {
+        Alert.alert(t.prescription.savedHint, t.prescription.pendingHint);
+      }
     } catch (err) {
       if (ApiError.is(err, 'VALIDATION_ERROR')) setFieldErrors(err.fieldErrors());
       setFormError(errorMessage(err));
@@ -168,6 +175,8 @@ function SavedRow({ rx }: { rx: Prescription }) {
   const errorMessage = useApiErrorMessage();
 
   const verified = rx.status === 'verified';
+  // Pending prescriptions can be used right away; the clinic verifies them before the lab step.
+  const usable = verified || rx.status === 'pending';
   const attached = cart.cart?.prescription?.id === rx.id;
   const statusLabel = { pending: t.prescription.statusPending, verified: t.prescription.statusVerified, expired: t.prescription.statusExpired, rejected: t.prescription.statusRejected }[rx.status];
   const statusColor = { pending: 'textSecondary', verified: 'green', expired: 'textMuted', rejected: 'red' } as const;
@@ -201,17 +210,15 @@ function SavedRow({ rx }: { rx: Prescription }) {
           {rx.issuedOn ? `${date(rx.issuedOn, 'short')} · ` : ''}{statusLabel}{rx.reviewNote ? ` · ${rx.reviewNote}` : ''}
         </Text>
       </View>
-      {verified ? (
-        attached ? (
-          <Text variant="caption" color="green">{t.prescription.attached}</Text>
-        ) : (
-          <Button label={t.prescription.attach} variant="outline" size="sm" disabled={cart.pending.prescription} onPress={attach} />
-        )
-      ) : rx.status !== 'expired' ? (
+      {attached ? (
+        <Text variant="caption" color="green">{t.prescription.attached}</Text>
+      ) : usable ? (
+        <Button label={t.prescription.attach} variant="outline" size="sm" disabled={cart.pending.prescription} onPress={attach} />
+      ) : (
         <Pressable onPress={confirmDelete} hitSlop={10} accessibilityRole="button" accessibilityLabel={t.common.delete}>
           <Icon name="close" size={16} color={colors.textMuted} />
         </Pressable>
-      ) : null}
+      )}
     </View>
   );
 }
