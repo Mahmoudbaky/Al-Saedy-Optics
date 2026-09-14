@@ -1,5 +1,5 @@
 import { Chip, ChipRow } from '@/components/ui';
-import { categoryFilters, categoryLabelKey, type CategoryFilter } from '@/data';
+import { categoryFilters, categoryLabelKey, type CategoryFilter } from '@/catalog/categories';
 import { useLocale } from '@/i18n';
 
 export interface CategoryChipsProps {

@@ -6,18 +6,20 @@ import { radius, spacing, useTheme, useThemedStyles, type Palette } from '@/them
 
 export interface HeroBannerProps {
   title: string;
+  subtitle?: string | null;
   ctaLabel: string;
   placeholder: string;
+  imageUrl?: string | null;
   onPress?: () => void;
 }
 
 /** Campaign banner with a navy gradient that fades from the reading start. */
-export function HeroBanner({ title, ctaLabel, placeholder, onPress }: HeroBannerProps) {
+export function HeroBanner({ title, subtitle, ctaLabel, placeholder, imageUrl, onPress }: HeroBannerProps) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   return (
     <View style={styles.container}>
-      <ImageSlot tone="hero" placeholder={placeholder} style={StyleSheet.absoluteFill} />
+      <ImageSlot tone="hero" source={imageUrl ? { uri: imageUrl } : undefined} placeholder={placeholder} style={StyleSheet.absoluteFill} />
       <LinearGradient
         colors={[colors.navy88, colors.navy15]}
         start={{ x: I18nManager.isRTL ? 1 : 0, y: 0.5 }}
@@ -26,6 +28,7 @@ export function HeroBanner({ title, ctaLabel, placeholder, onPress }: HeroBanner
       />
       <View style={styles.content}>
         <Text variant="displayMd" color="onNavy">{title}</Text>
+        {subtitle ? <Text variant="bodySm" color="onNavyMuted">{subtitle}</Text> : null}
         <Pressable onPress={onPress} accessibilityRole="button" style={styles.cta} rippleColor="rgba(255,255,255,0.25)">
           <Text variant="label" color="onNavy" weight="bold">{ctaLabel}</Text>
         </Pressable>

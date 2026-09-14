@@ -39,10 +39,16 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="index" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(auth)" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="product/[id]" />
         <Stack.Screen name="prescription" />
         <Stack.Screen name="checkout" />
+        <Stack.Screen name="orders/index" />
         <Stack.Screen name="orders/[id]" />
+        <Stack.Screen name="addresses" />
+        <Stack.Screen name="appointments" />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="profile-edit" />
         <Stack.Screen name="book-exam" />
         <Stack.Screen name="wishlist" />
       </Stack>

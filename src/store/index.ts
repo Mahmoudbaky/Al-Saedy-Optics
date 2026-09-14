@@ -1,3 +1,4 @@
 export { AppProviders } from './AppProviders';
-export { CartProvider, useCart, lineTotal, lineUnitPrice } from './CartProvider';
-export { WishlistProvider, useWishlist } from './WishlistProvider';
+export { queryClient } from './query-client';
+// Server-backed replacements for the old in-memory providers.
+export { useCart, useWishlist } from '@/api';

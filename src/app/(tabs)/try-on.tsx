@@ -1,23 +1,23 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useApiErrorMessage, useCart, useProduct } from '@/api';
+import { useAuth } from '@/auth';
 import { Screen } from '@/components/layout';
 import { Button, Icon, IconButton, Pressable, Text, type IconName } from '@/components/ui';
-import { getProduct, products } from '@/data';
 import { useLocale } from '@/i18n';
-import { useCart } from '@/store';
 import { radius, spacing, useTheme, useThemedStyles, type Palette } from '@/theme';
 
 const DEFAULT_PRODUCT_ID = 'vc-214';
 
-/** Frame styles the user can flip between while the camera is live. */
+/** Frame styles (product slugs) the user can flip between while the camera is live. */
 const frameStyles: { icon: IconName; productId: string }[] = [
   { icon: 'glasses', productId: DEFAULT_PRODUCT_ID },
-  { icon: 'sunglasses', productId: 'aviator-sun' },
-  { icon: 'contacts', productId: 'monthly-contacts' },
+  { icon: 'sunglasses', productId: 'ray-ban-rb3025-aviator' },
+  { icon: 'contacts', productId: 'ray-ban-rb3447-round' },
 ];
 
 export default function TryOnScreen() {
@@ -26,14 +26,27 @@ export default function TryOnScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t, l, price } = useLocale();
-  const { dispatch } = useCart();
+  const { user } = useAuth();
+  const cart = useCart();
+  const errorMessage = useApiErrorMessage();
   const params = useLocalSearchParams<{ product?: string }>();
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('front');
-  const [productId, setProductId] = useState(() => (params.product && getProduct(params.product) ? params.product : DEFAULT_PRODUCT_ID));
+  const [productId, setProductId] = useState(() => params.product || DEFAULT_PRODUCT_ID);
 
-  const product = getProduct(productId) ?? products[0];
+  const { data: product } = useProduct(productId);
   const canGoBack = router.canGoBack();
+
+  const addToCart = async () => {
+    if (!user) return router.push('/(auth)/sign-in');
+    if (!product) return;
+    try {
+      await cart.addItem({ productId: product.id });
+      Alert.alert(t.product.addedToCart);
+    } catch (err) {
+      Alert.alert(errorMessage(err));
+    }
+  };
 
   return (
     <Screen background="cameraBackdrop" edges={[]}>
@@ -69,13 +82,13 @@ export default function TryOnScreen() {
               );
             })}
             <View style={styles.productInfo}>
-              <Text variant="bodySm" color="onNavy" weight="bold" numberOfLines={1}>{product.code ?? l(product.name)}</Text>
-              <Text variant="label" style={styles.productPrice}>{price(product.price)}</Text>
+              <Text variant="bodySm" color="onNavy" weight="bold" numberOfLines={1}>{product ? (product.code ?? l(product.name)) : '…'}</Text>
+              <Text variant="label" style={styles.productPrice}>{product ? price(product.price) : ''}</Text>
             </View>
           </View>
 
           <View style={styles.actions}>
-            <Button label={t.tryOn.addToCart} variant="white" size="md" style={styles.addButton} onPress={() => dispatch({ type: 'add', product })} />
+            <Button label={t.tryOn.addToCart} variant="white" size="md" style={styles.addButton} disabled={!product || cart.pending.add} onPress={addToCart} />
             <Pressable accessibilityRole="button" accessibilityLabel={t.tryOn.capture} style={styles.shutter}>
               <View style={styles.shutterInner} />
             </Pressable>

@@ -27,3 +27,54 @@ export function formatAmount(amount: number): string {
 export function interpolate(template: string, params: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => String(params[key] ?? `{${key}}`));
 }
+
+/* ── Dates ─────────────────────────────────────────────────────────── */
+
+/** The clinic and all customers are in Iraq; the API returns UTC instants. */
+export const TIME_ZONE = 'Asia/Baghdad';
+
+/** `ar-IQ` with Arabic-Indic digits keeps dates consistent with `localizeDigits`. */
+const tagFor = (locale: Locale) => (locale === 'ar' ? 'ar-IQ-u-nu-arab' : 'en-IQ');
+
+/**
+ * Parses an ISO instant or a date-only `YYYY-MM-DD`. Date-only values are pinned to
+ * noon Baghdad so they never shift a day when formatted in the clinic timezone.
+ */
+export function parseApiDate(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00+03:00`) : new Date(value);
+}
+
+function fmt(value: string, locale: Locale, options: Intl.DateTimeFormatOptions): string {
+  const date = parseApiDate(value);
+  if (Number.isNaN(date.getTime())) return value;
+  try {
+    return new Intl.DateTimeFormat(tagFor(locale), { timeZone: TIME_ZONE, ...options }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(locale, { timeZone: TIME_ZONE, ...options }).format(date);
+  }
+}
+
+/** `12 August 2026` / `١٢ آب ٢٠٢٦` (or short: `12 Aug`). */
+export function formatDate(value: string, locale: Locale, style: 'long' | 'short' = 'long'): string {
+  return style === 'long' ? fmt(value, locale, { day: 'numeric', month: 'long', year: 'numeric' }) : fmt(value, locale, { day: 'numeric', month: 'short' });
+}
+
+/** `Wed, 13 Aug · 4:00 PM` */
+export function formatDateTime(value: string, locale: Locale): string {
+  return fmt(value, locale, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
+/** `4:00 PM` / `٤:٠٠ م` */
+export function formatTime(value: string, locale: Locale): string {
+  return fmt(value, locale, { hour: 'numeric', minute: '2-digit' });
+}
+
+/** `Wed` / `الأربعاء` */
+export function formatWeekday(value: string, locale: Locale, width: 'short' | 'long' = 'short'): string {
+  return fmt(value, locale, { weekday: width });
+}
+
+/** Day of month only: `13` / `١٣`. */
+export function formatDayNumber(value: string, locale: Locale): string {
+  return fmt(value, locale, { day: 'numeric' });
+}

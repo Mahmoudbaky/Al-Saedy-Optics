@@ -54,3 +54,13 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Backend connection
+
+The app talks to the [Al-Saedy Optics backend](../Al-Saedy-Optics-backend) (`/api/v1`, Better Auth at `/api/auth`).
+
+- **Dev:** run `pnpm dev` in the backend, then `npx expo start` here. With no `EXPO_PUBLIC_API_URL` set the app uses the Metro host on port 3000, which is your LAN IP on a device and works on emulators too.
+- **Custom URL:** copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_API_URL` (Android emulator against localhost: `http://10.0.2.2:3000`).
+- **Demo accounts** (after `pnpm db:seed:demo` in the backend): `ali.hassan@demo.alsaedy.iq` (orders, prescriptions, addresses, cart) and `mustafa.jasim@demo.alsaedy.iq` (empty), password `Password123!`.
+
+Code map: `src/api` (fetch client, DTO types, TanStack Query hooks per domain) · `src/auth` (Better Auth Expo client, `useAuth`, `RequireAuth` gate) · `src/notifications` (Expo push token registration).

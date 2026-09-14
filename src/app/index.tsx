@@ -22,6 +22,11 @@ export default function SplashScreen() {
   // Storing the choice flips `hasChosenLocale`, which redirects into the tabs.
   // A direction change reloads the app first so the new layout direction applies.
   const start = () => setLocale(choice);
+  const signIn = async () => {
+    await setLocale(choice);
+    router.replace('/(tabs)');
+    router.push('/(auth)/sign-in');
+  };
 
   return (
     <Screen background="brand" edges={['top', 'bottom']} style={styles.screen}>
@@ -42,7 +47,7 @@ export default function SplashScreen() {
           <LanguageOption label={t.splash.english} selected={choice === 'en'} onPress={() => setChoice('en')} />
         </View>
         <Button label={t.splash.start} onPress={start} />
-        <Pressable onPress={() => router.replace('/(tabs)/account')} accessibilityRole="link" style={styles.signIn}>
+        <Pressable onPress={signIn} accessibilityRole="link" style={styles.signIn}>
           <Text variant="label" color="onNavySubtle" align="center">{t.splash.haveAccount}</Text>
         </Pressable>
       </View>

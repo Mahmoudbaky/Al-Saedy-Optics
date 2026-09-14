@@ -3,7 +3,7 @@ import { I18nManager } from 'react-native';
 
 import { reloadApp } from '@/utils/reload';
 
-import { formatPrice, interpolate, localizeDigits } from './format';
+import { formatDate, formatDateTime, formatPrice, formatTime, formatWeekday, interpolate, localizeDigits } from './format';
 import { DEFAULT_LOCALE, isRtlLocale, type Locale, type LocalizedString } from './locale';
 import { readStoredLocale, writeStoredLocale } from './storage';
 import { ar } from './translations/ar';
@@ -28,6 +28,11 @@ interface LocaleContextValue {
   /** Arabic-Indic digits in Arabic, unchanged otherwise. */
   n: (value: string | number) => string;
   price: (amount: number) => string;
+  /** Formats an ISO instant / `YYYY-MM-DD` in the clinic timezone. */
+  date: (value: string, style?: 'long' | 'short') => string;
+  dateTime: (value: string) => string;
+  time: (value: string) => string;
+  weekday: (value: string, width?: 'short' | 'long') => string;
   setLocale: (locale: Locale) => Promise<void>;
 }
 
@@ -61,6 +66,10 @@ export function LocaleProvider({ children }: PropsWithChildren) {
       l: (v) => v[locale],
       n: (v) => localizeDigits(v, locale),
       price: (amount) => formatPrice(amount, locale, t.common.currency),
+      date: (v, style) => formatDate(v, locale, style),
+      dateTime: (v) => formatDateTime(v, locale),
+      time: (v) => formatTime(v, locale),
+      weekday: (v, width) => formatWeekday(v, locale, width),
       setLocale,
     };
   }, [locale, stored, setLocale]);

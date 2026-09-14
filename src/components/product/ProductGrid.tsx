@@ -1,17 +1,17 @@
 import { StyleSheet, View } from 'react-native';
 
-import type { Product } from '@/data';
+import type { ProductCard as ProductCardData } from '@/api';
 import { spacing } from '@/theme';
 
 import { ProductCard, type ProductCardProps } from './ProductCard';
 
 export interface ProductGridProps extends Omit<ProductCardProps, 'product'> {
-  products: readonly Product[];
+  products: readonly ProductCardData[];
 }
 
 /** Two-column grid; rows are built explicitly so the last odd card keeps its width. */
 export function ProductGrid({ products, ...cardProps }: ProductGridProps) {
-  const rows: Product[][] = [];
+  const rows: ProductCardData[][] = [];
   for (let i = 0; i < products.length; i += 2) rows.push(products.slice(i, i + 2));
 
   return (

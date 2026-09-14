@@ -15,3 +15,4 @@ export { Stepper } from './Stepper';
 export { Swatch } from './Swatch';
 export { Text } from './Text';
 export { Toggle } from './Toggle';
+export { TextField } from './TextField';
