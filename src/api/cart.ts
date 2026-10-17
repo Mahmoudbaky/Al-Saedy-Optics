@@ -4,7 +4,7 @@ import { useAuth } from '@/auth/AuthProvider';
 
 import { api } from './client';
 import { qk } from './query-keys';
-import type { AddCartItemInput, Cart } from './types';
+import type { AddCartItemInput, AttachLineAppointmentInput, Cart } from './types';
 
 /**
  * Server-owned cart. Every mutation returns the full cart, which replaces the cache
@@ -36,10 +36,22 @@ export function useCart() {
   const remove = useMutation({ mutationFn: (itemId: string) => api.del<Cart>(`/me/cart/items/${itemId}`), onSuccess: put });
   const clear = useMutation({ mutationFn: () => api.del<Cart>('/me/cart'), onSuccess: put });
   const promo = useMutation({ mutationFn: (code: string | null) => api.put<Cart>('/me/cart/promo', { code }), onSuccess: put });
+  // Per-line prescription source – option 1 (saved Rx) or option 2 (eye exam).
   const attachRx = useMutation({
-    mutationFn: (prescriptionId: string | null) => api.put<Cart>('/me/cart/prescription', { prescriptionId }),
+    mutationFn: ({ itemId, prescriptionId }: { itemId: string; prescriptionId: string }) =>
+      api.put<Cart>(`/me/cart/items/${itemId}/prescription`, { prescriptionId }),
     onSuccess: put,
   });
+  const attachAppt = useMutation({
+    mutationFn: ({ itemId, input }: { itemId: string; input: AttachLineAppointmentInput }) => api.put<Cart>(`/me/cart/items/${itemId}/appointment`, input),
+    onSuccess: (cart) => {
+      put(cart);
+      // Booking through the cart creates an appointment too.
+      qc.invalidateQueries({ queryKey: qk.me.appointments });
+      qc.invalidateQueries({ queryKey: qk.clinic.availabilityAll });
+    },
+  });
+  const clearRx = useMutation({ mutationFn: (itemId: string) => api.del<Cart>(`/me/cart/items/${itemId}/prescription`), onSuccess: put });
 
   const cart = query.data ?? null;
 
@@ -56,8 +68,14 @@ export function useCart() {
     removeItem: remove.mutateAsync,
     clear: clear.mutateAsync,
     applyPromo: promo.mutateAsync,
-    attachPrescription: attachRx.mutateAsync,
-    pending: { add: add.isPending, quantity: setQty.isPending, promo: promo.isPending, prescription: attachRx.isPending },
+    /** Option 1 – use one of my saved prescriptions for this line. */
+    attachLinePrescription: (itemId: string, prescriptionId: string) => attachRx.mutateAsync({ itemId, prescriptionId }),
+    /** Option 2 – link an upcoming exam or book a new slot for this line. */
+    attachLineAppointment: (itemId: string, input: AttachLineAppointmentInput) => attachAppt.mutateAsync({ itemId, input }),
+    clearLineRx: clearRx.mutateAsync,
+    /** Lines that still need a prescription source. */
+    rxLines: cart?.items.filter((i) => i.prescription.required) ?? [],
+    pending: { add: add.isPending, quantity: setQty.isPending, promo: promo.isPending, prescription: attachRx.isPending || attachAppt.isPending || clearRx.isPending },
   };
 }
 

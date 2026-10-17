@@ -258,7 +258,32 @@ export interface Prescription {
   add: string | null;
   imageUrl: string | null;
   reviewNote: string | null;
+  /** Set when the prescription came from an in-clinic eye exam. */
+  appointmentId: string | null;
   createdAt: string;
+}
+
+/** How a cart / order line gets its prescription. */
+export type LineRxMode = 'none' | 'existing' | 'appointment';
+/** Ordered from most blocking to done – mirrors `rx-line.ts` on the server. */
+export type LineRxState = 'rejected' | 'expired' | 'examCancelled' | 'missing' | 'awaitingExam' | 'pending' | 'verified' | 'notRequired';
+
+export interface AppointmentSummary {
+  id: string;
+  scheduledAt: string;
+  status: AppointmentStatus;
+  doctor: { id: string; name: L };
+}
+
+export interface CartLineRx {
+  required: boolean;
+  mode: LineRxMode;
+  state: LineRxState;
+  /** Can be checked out (staff verify pending / exam-based lines before the lab). */
+  ready: boolean;
+  issue: string | null;
+  prescription: Prescription | null;
+  appointment: AppointmentSummary | null;
 }
 
 export interface CreatePrescriptionInput {
@@ -285,13 +310,17 @@ export interface CartItem {
   lineTotal: number;
   available: boolean;
   issue: string | null;
+  /** Per-line prescription source and state. */
+  prescription: CartLineRx;
 }
 
 export interface Cart {
   id: string;
   items: CartItem[];
-  prescription: Prescription | null;
+  /** True when at least one line needs a prescription. */
   requiresPrescription: boolean;
+  /** False while any line still needs a prescription source (or has a rejected / expired one). */
+  prescriptionsReady: boolean;
   promo: { code: string | null; discount: number; error: string | null };
   summary: {
     itemCount: number;
@@ -310,7 +339,13 @@ export interface AddCartItemInput {
   quantity?: number;
   addonIds?: string[];
   variantLabel?: string;
+  /** Prescription source for Rx products – pick one; can also be set later per line. */
+  prescriptionId?: string;
+  appointmentId?: string;
 }
+
+/** Option 2 for a cart line: link an appointment I already have, or book a new slot. */
+export type AttachLineAppointmentInput = { appointmentId: string } | (Omit<BookAppointmentInput, 'reason'> & { reason?: AppointmentReason });
 
 export interface OrderItem {
   id: string;
@@ -325,6 +360,15 @@ export interface OrderItem {
   unitPrice: number;
   quantity: number;
   lineTotal: number;
+  prescription: {
+    required: boolean;
+    mode: LineRxMode;
+    state: LineRxState;
+    prescriptionId: string | null;
+    /** Values frozen for the lab; null until an exam-based line gets its prescription. */
+    snapshot: { id: string; od: EyeValues; os: EyeValues; pd: string | null; add: string | null } | null;
+    appointment: AppointmentSummary | null;
+  };
 }
 
 export interface Order {
@@ -335,7 +379,8 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   address: Omit<Address, 'id' | 'label' | 'isDefault'> | null;
-  prescription: { id: string; od: EyeValues; os: EyeValues; pd: string | null; add: string | null } | null;
+  /** Most blocking prescription state across the lines; null when nothing needs one. */
+  prescriptionStatus: LineRxState | null;
   items: OrderItem[];
   itemCount: number;
   subtotal: number;
@@ -358,7 +403,6 @@ export interface CheckoutInput {
   deliveryMethod: DeliveryMethod;
   paymentMethod: PaymentMethod;
   addressId?: string;
-  prescriptionId?: string;
   note?: string;
 }
 
@@ -389,6 +433,8 @@ export interface Availability {
 
 export interface Appointment {
   id: string;
+  /** Prescription recorded at this exam by the clinic, once available. */
+  prescriptionId: string | null;
   doctor: Pick<Doctor, 'id' | 'name' | 'specialty' | 'imageUrl'>;
   scheduledAt: string;
   reason: AppointmentReason;

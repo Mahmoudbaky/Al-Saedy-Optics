@@ -47,11 +47,13 @@ function CheckoutForm({ cart }: { cart: Cart }) {
   const [note, setNote] = useState('');
 
   const address = addresses.data?.find((a) => a.isDefault) ?? addresses.data?.[0];
-  const { summary, prescription, requiresPrescription } = cart;
+  const { summary, requiresPrescription, prescriptionsReady } = cart;
+  const rxLines = cart.items.filter((i) => i.prescription.required);
+  const rxAwaitingExam = rxLines.filter((i) => i.prescription.state === 'awaitingExam').length;
   // Mirrors `deliveryFeeFor` on the server: pickup is free, home delivery is free above the threshold.
   const deliveryFee = delivery === 'pickup' ? 0 : summary.deliveryFee;
   const total = summary.subtotal - summary.discount + deliveryFee;
-  const missingRx = requiresPrescription && !prescription;
+  const missingRx = !prescriptionsReady;
   const missingAddress = delivery === 'home' && !address;
   const canPlace = !missingRx && !missingAddress && !checkout.isPending && !addresses.isPending;
 
@@ -61,7 +63,6 @@ function CheckoutForm({ cart }: { cart: Cart }) {
         deliveryMethod: delivery,
         paymentMethod: payment,
         addressId: delivery === 'home' ? address?.id : undefined,
-        prescriptionId: prescription?.id,
         note: note.trim() || undefined,
       });
       router.replace({ pathname: '/orders/[id]', params: { id: order.id } });
@@ -133,14 +134,20 @@ function CheckoutForm({ cart }: { cart: Cart }) {
             ...(summary.discount > 0 ? [{ label: t.cart.discount, value: `− ${price(summary.discount)}`, valueColor: 'green' as const }] : []),
             { label: t.common.delivery, value: deliveryFee === 0 ? t.common.free : price(deliveryFee), valueColor: deliveryFee === 0 ? ('green' as const) : ('text' as const) },
             ...(requiresPrescription
-              ? [{ label: t.checkout.rxLine, value: prescription ? t.checkout.rxSaved : t.checkout.rxMissing, valueColor: prescription ? ('green' as const) : ('red' as const) }]
+              ? [
+                  {
+                    label: t.checkout.rxLine,
+                    value: !prescriptionsReady ? t.checkout.rxMissing : rxAwaitingExam > 0 ? tf(t.checkout.rxAwaitingExam, { count: n(rxAwaitingExam) }) : t.checkout.rxSaved,
+                    valueColor: !prescriptionsReady ? ('red' as const) : ('green' as const),
+                  },
+                ]
               : []),
           ]}
           totalLabel={t.common.total}
           totalValue={price(total)}
         />
         {missingRx ? (
-          <Pressable onPress={() => router.push('/prescription')} accessibilityRole="button">
+          <Pressable onPress={() => router.back()} accessibilityRole="button">
             <Text variant="caption" color="red" align="center">{t.cart.rxRequiredHint}</Text>
           </Pressable>
         ) : null}

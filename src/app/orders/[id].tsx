@@ -116,6 +116,11 @@ function OrderView({ order }: { order: Order }) {
                 <View style={styles.lineBody}>
                   <Text variant="bodySm" weight="medium" numberOfLines={1}>{item.code ? `${l(item.name)} ${item.code}` : l(item.name)}</Text>
                   <Text variant="caption" color="textSecondary" numberOfLines={1}>{`${details ? `${details} · ` : ''}×${n(item.quantity)}`}</Text>
+                  {item.prescription.required ? (
+                    <Text variant="tiny" color={item.prescription.state === 'verified' ? 'green' : item.prescription.state === 'awaitingExam' || item.prescription.state === 'pending' ? 'textSecondary' : 'red'} numberOfLines={1}>
+                      {t.cart.rxState[item.prescription.state]}
+                    </Text>
+                  ) : null}
                 </View>
                 <Text variant="bodySm" weight="bold">{formatAmount(item.lineTotal)}</Text>
               </View>

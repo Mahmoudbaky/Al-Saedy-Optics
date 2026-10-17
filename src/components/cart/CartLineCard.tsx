@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { CartItem } from '@/api';
@@ -11,9 +12,11 @@ export interface CartLineCardProps {
   onRemove: () => void;
   /** Disables the stepper while a quantity change is in flight. */
   busy?: boolean;
+  /** Extra content under the price row, e.g. the per-line prescription strip. */
+  footer?: ReactNode;
 }
 
-export function CartLineCard({ item, onQuantityChange, onRemove, busy = false }: CartLineCardProps) {
+export function CartLineCard({ item, onQuantityChange, onRemove, busy = false, footer }: CartLineCardProps) {
   const { t, l, n, price } = useLocale();
   const { colors } = useTheme();
   const details = [
@@ -44,6 +47,7 @@ export function CartLineCard({ item, onQuantityChange, onRemove, busy = false }:
             <Stepper value={item.quantity} onChange={onQuantityChange} max={20} />
           </View>
         </View>
+        {footer}
       </View>
     </Card>
   );

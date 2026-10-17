@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { useApiErrorMessage, useAvailability, useBookAppointment, useDoctors, type AppointmentReason, type Availability } from '@/api';
+import { useApiErrorMessage, useAvailability, useBookAppointment, useCart, useDoctors, type AppointmentReason, type Availability } from '@/api';
 import { useAuth } from '@/auth';
 import { ErrorView, LoadingView } from '@/components/feedback';
 import { BottomBar, Screen, ScreenHeader, ScreenScroll } from '@/components/layout';
@@ -54,12 +54,16 @@ function BookingForm({ availability, doctorOptions, onDoctorChange }: BookingFor
   const { t, l, n, locale, weekday, dateTime } = useLocale();
   const { user } = useAuth();
   const book = useBookAppointment();
+  const cart = useCart();
   const errorMessage = useApiErrorMessage();
+  // Opened from a cart line ("book an eye exam for this item"): the booking becomes that line's prescription source.
+  const { itemId } = useLocalSearchParams<{ itemId?: string }>();
+  const targetLine = itemId ? cart.cart?.items.find((i) => i.id === itemId) : undefined;
 
   const days = availability.days;
   const [dayIndex, setDayIndex] = useState(() => Math.max(0, days.findIndex((d) => d.slots.some((s) => s.available))));
   const [slotAt, setSlotAt] = useState<string | null>(null);
-  const [reason, setReason] = useState<AppointmentReason>('exam');
+  const [reason, setReason] = useState<AppointmentReason>(targetLine ? 'rx' : 'exam');
   const [remind, setRemind] = useState(true);
   const [notes, setNotes] = useState('');
 
@@ -73,8 +77,15 @@ function BookingForm({ availability, doctorOptions, onDoctorChange }: BookingFor
   const confirm = async () => {
     if (!user) return router.push('/(auth)/sign-in');
     if (!slotAt) return Alert.alert(t.booking.selectSlot);
+    const input = { doctorId: availability.doctor.id, scheduledAt: slotAt, reason, remindMe: remind, notes: notes.trim() || undefined };
     try {
-      const appt = await book.mutateAsync({ doctorId: availability.doctor.id, scheduledAt: slotAt, reason, remindMe: remind, notes: notes.trim() || undefined });
+      if (targetLine) {
+        // One call: books the slot and links it to the cart line.
+        await cart.attachLineAppointment(targetLine.id, input);
+        Alert.alert(t.booking.confirmed, t.booking.linkedToItem, [{ text: t.common.done, onPress: () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/cart')) }]);
+        return;
+      }
+      const appt = await book.mutateAsync(input);
       Alert.alert(t.booking.confirmed, dateTime(appt.scheduledAt), [{ text: t.common.done, onPress: () => router.replace('/appointments') }]);
     } catch (err) {
       Alert.alert(errorMessage(err));

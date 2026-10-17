@@ -2,9 +2,9 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 
-import { useApiErrorMessage, useCart, useProduct, type Cart } from "@/api";
+import { useApiErrorMessage, useAppointments, useCart, useProduct, type Cart } from "@/api";
 import { RequireAuth } from "@/auth";
-import { CartLineCard, OrderSummaryCard } from "@/components/cart";
+import { CartLineCard, CartLineRx, OrderSummaryCard } from "@/components/cart";
 import { EmptyView, ErrorView, LoadingView } from "@/components/feedback";
 import { Screen, ScreenHeader, ScreenScroll } from "@/components/layout";
 import {
@@ -66,7 +66,7 @@ function CartBody() {
 function CartContent({ cart: data }: { cart: Cart }) {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
-  const { t, tf, n, price } = useLocale();
+  const { t, tf, price } = useLocale();
   const cart = useCart();
   const errorMessage = useApiErrorMessage();
   const [promo, setPromo] = useState("");
@@ -77,10 +77,15 @@ function CartContent({ cart: data }: { cart: Cart }) {
   const showUpsell =
     upsell.data && upsell.data.inStock && !cart.has(upsell.data.id);
 
-  const { summary, prescription, requiresPrescription } = data;
-  console.log(prescription, requiresPrescription);
+  const { summary, prescriptionsReady } = data;
   const hasUnavailable = data.items.some((i) => !i.available);
-  const missingRx = requiresPrescription && !prescription;
+  const missingRx = !prescriptionsReady;
+  // Upcoming visit the customer already booked – offered as a one-tap prescription source.
+  const appointments = useAppointments();
+  const upcoming =
+    appointments.data
+      ?.filter((a) => (a.status === "booked" || a.status === "confirmed") && new Date(a.scheduledAt) > new Date())
+      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))[0] ?? null;
   const untilFreeDelivery =
     summary.freeDeliveryThreshold - (summary.subtotal - summary.discount);
 
@@ -137,6 +142,27 @@ function CartContent({ cart: data }: { cart: Cart }) {
             run(item.id, () => cart.setQuantity(item.id, quantity))
           }
           onRemove={() => run(item.id, () => cart.removeItem(item.id))}
+          footer={
+            <CartLineRx
+              rx={item.prescription}
+              busy={busyItem === item.id}
+              upcomingAppointment={
+                upcoming
+                  ? { id: upcoming.id, scheduledAt: upcoming.scheduledAt, status: upcoming.status, doctor: upcoming.doctor }
+                  : null
+              }
+              onChoosePrescription={() =>
+                router.push({ pathname: "/prescription", params: { itemId: item.id } })
+              }
+              onBookExam={() =>
+                router.push({ pathname: "/book-exam", params: { itemId: item.id } })
+              }
+              onLinkAppointment={(appointmentId) =>
+                run(item.id, () => cart.attachLineAppointment(item.id, { appointmentId }))
+              }
+              onClear={() => run(item.id, () => cart.clearLineRx(item.id))}
+            />
+          }
         />
       ))}
 
@@ -187,38 +213,6 @@ function CartContent({ cart: data }: { cart: Cart }) {
         </View>
       )}
 
-      {requiresPrescription ? (
-        <Pressable
-          onPress={() => router.push("/prescription")}
-          accessibilityRole="button"
-        >
-          <Card style={styles.rowCard}>
-            <View style={styles.iconBox}>
-              <Icon name="bookmark" size={19} />
-            </View>
-            <View style={styles.rowBody}>
-              <Text variant="bodySm" weight="medium">
-                {prescription ? t.cart.rxAttached : t.cart.rxMissing}
-              </Text>
-              {prescription ? (
-                <Text variant="caption" color="textSecondary">
-                  {n(
-                    `OD ${prescription.od.sph ?? "—"} · OS ${prescription.os.sph ?? "—"} · PD ${prescription.pd ?? "—"}`,
-                  )}
-                </Text>
-              ) : (
-                <Text variant="caption" color="red">
-                  {t.cart.rxRequiredHint}
-                </Text>
-              )}
-            </View>
-            <Text variant="label" color="red">
-              {prescription ? t.common.change : t.common.add}
-            </Text>
-          </Card>
-        </Pressable>
-      ) : null}
-
       {showUpsell ? (
         <Card style={styles.rowCard} padding={13}>
           <Icon name="card" size={20} />
@@ -258,6 +252,11 @@ function CartContent({ cart: data }: { cart: Cart }) {
       {hasUnavailable ? (
         <Text variant="caption" color="red" align="center">
           {t.errors.itemsUnavailable}
+        </Text>
+      ) : null}
+      {missingRx ? (
+        <Text variant="caption" color="red" align="center">
+          {t.cart.rxRequiredHint}
         </Text>
       ) : null}
       <Button

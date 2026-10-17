@@ -1,6 +1,6 @@
 import { useState, type ComponentProps } from 'react';
 import { Alert, StyleSheet, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ApiError, useApiErrorMessage, useCart, useCreatePrescription, useDeletePrescription, usePrescriptions, type Prescription } from '@/api';
 import { RequireAuth } from '@/auth';
@@ -38,6 +38,9 @@ function PrescriptionBody() {
   const prescriptions = usePrescriptions();
   const create = useCreatePrescription();
   const cart = useCart();
+  // When opened from a cart line ("use a saved prescription"), attach the chosen / new Rx to that line.
+  const { itemId } = useLocalSearchParams<{ itemId?: string }>();
+  const targetLine = itemId ? cart.cart?.items.find((i) => i.id === itemId) : undefined;
 
   const [mode, setMode] = useState<Mode>('manual');
   const [values, setValues] = useState<Record<Eye, EyeForm>>({ od: emptyEye, os: emptyEye });
@@ -68,9 +71,9 @@ function PrescriptionBody() {
       setValues({ od: emptyEye, os: emptyEye });
       setPd('');
       setAdd('');
-      // Attach it straight away when the cart is waiting for one, then return to the cart.
-      if (cart.cart?.requiresPrescription && !cart.cart.prescription) {
-        await cart.attachPrescription(created.id).catch(() => {});
+      // Attach it straight away to the cart line that asked for it, then return to the cart.
+      if (targetLine) {
+        await cart.attachLinePrescription(targetLine.id, created.id).catch(() => {});
         Alert.alert(t.prescription.savedHint, t.prescription.pendingHint, [{ text: t.common.done, onPress: () => router.canGoBack() && router.back() }]);
       } else {
         Alert.alert(t.prescription.savedHint, t.prescription.pendingHint);
@@ -142,7 +145,7 @@ function PrescriptionBody() {
             prescriptions.data.map((rx, i) => (
               <View key={rx.id} style={styles.savedList}>
                 {i > 0 ? <Divider tone="muted" /> : null}
-                <SavedRow rx={rx} />
+                <SavedRow rx={rx} lineId={targetLine?.id} attachedId={targetLine?.prescription.prescription?.id ?? null} />
               </View>
             ))
           )}
@@ -165,7 +168,7 @@ function PrescriptionBody() {
   );
 }
 
-function SavedRow({ rx }: { rx: Prescription }) {
+function SavedRow({ rx, lineId, attachedId }: { rx: Prescription; lineId?: string; attachedId: string | null }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const router = useRouter();
@@ -177,15 +180,16 @@ function SavedRow({ rx }: { rx: Prescription }) {
   const verified = rx.status === 'verified';
   // Pending prescriptions can be used right away; the clinic verifies them before the lab step.
   const usable = verified || rx.status === 'pending';
-  const attached = cart.cart?.prescription?.id === rx.id;
+  const attached = attachedId === rx.id;
   const statusLabel = { pending: t.prescription.statusPending, verified: t.prescription.statusVerified, expired: t.prescription.statusExpired, rejected: t.prescription.statusRejected }[rx.status];
   const statusColor = { pending: 'textSecondary', verified: 'green', expired: 'textMuted', rejected: 'red' } as const;
   const title = rx.label ?? rx.doctorName ?? (rx.issuedOn ? date(rx.issuedOn) : t.prescription.title);
   const summary = n(`OD ${rx.od.sph ?? '—'} · OS ${rx.os.sph ?? '—'}${rx.pd ? ` · PD ${rx.pd}` : ''}`);
 
   const attach = async () => {
+    if (!lineId) return;
     try {
-      await cart.attachPrescription(rx.id);
+      await cart.attachLinePrescription(lineId, rx.id);
       if (router.canGoBack()) router.back();
     } catch (err) {
       Alert.alert(errorMessage(err));
@@ -212,7 +216,7 @@ function SavedRow({ rx }: { rx: Prescription }) {
       </View>
       {attached ? (
         <Text variant="caption" color="green">{t.prescription.attached}</Text>
-      ) : usable ? (
+      ) : usable && lineId ? (
         <Button label={t.prescription.attach} variant="outline" size="sm" disabled={cart.pending.prescription} onPress={attach} />
       ) : (
         <Pressable onPress={confirmDelete} hitSlop={10} accessibilityRole="button" accessibilityLabel={t.common.delete}>
